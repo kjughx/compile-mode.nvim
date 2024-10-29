@@ -232,6 +232,12 @@ M.error_regexp_table = {
 		filename = 2,
 		row = 3,
 	},
+	rust = {
+		regex = "",
+		filename = 1,
+		row = 2,
+		col = 3,
+	},
 	-- TODO: support multi-line errors
 	rxp = {
 		regex = "^\\%(Error\\|Warnin\\(g\\)\\):.*\n.* line \\([0-9]\\+\\) char \\([0-9]\\+\\) of file://\\(.\\+\\)",
@@ -473,6 +479,52 @@ function M.parse(line, linenum)
 			end
 		end)
 end
+
+---Parses error syntax from a given line.
+---@param chunk table The lines to parse
+---@return CompileModeError|nil
+function M.parse_chunk(chunk)
+	local matcher =  {
+		multi_line = true,
+		patterns = { [[^(%a+)%[E%d+%]:%s+.+]], [[^%s*-->%s+([^:]+):(%d+):(%d+)$]]},
+		level = 1,
+		filename = 2,
+		row = 3,
+		col = 4,
+	}
+
+	local matches = {}
+	local match = 1
+	print("------------------------------")
+	for _, line in pairs(chunk) do
+		print(line)
+		for _, pattern in ipairs(matcher.patterns) do
+			local captures = {string.match(line, pattern)}
+			for _, capture in ipairs(captures) do
+				matches[match] = capture
+				match = match + 1
+			end
+		end
+	end
+	print("------------------------------")
+
+	---@type CompileModeError
+	return {
+		highlighted = false,
+		level = 1,
+		priority = matcher.priority or 1,
+		full = {start = 0, end_= 0},
+		full_text = "",
+		filename = matches[matcher.filename],
+		row = matches[matcher.row],
+		col = matches[matcher.col],
+		end_row = nil,
+		end_col = nil,
+		group = nil,
+		linenum = matches[matcher.row],
+	}
+end
+
 
 ---Highlight a single error in the compilation buffer.
 ---@param bufnr integer

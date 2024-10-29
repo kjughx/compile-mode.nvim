@@ -611,6 +611,22 @@ M._gf = goto_file(false)
 
 M._CTRL_W_f = goto_file(true)
 
+local function split_by_empty_line(lines)
+	local t = {}
+	local inner = {}
+	local i = 1
+	for l, line in ipairs(lines) do
+		if line:match("^$") then
+			t[i] = inner
+			i = i + 1
+		else
+			inner[l] = line
+		end
+	end
+
+	return t
+end
+
 function M._parse_errors(bufnr)
 	local config = require("compile-mode.config.internal")
 
@@ -619,42 +635,56 @@ function M._parse_errors(bufnr)
 
 	local output_highlights = {}
 	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-	for linenum, line in ipairs(lines) do
-		local error = errors.parse(line, linenum)
 
+	-- local chunks = split_by_empty_line(lines)
+
+	-- Assumes each error is separated by empty line, true for at least rust and C.
+	for _, chunk in ipairs({lines}) do
+		local error = errors.parse_chunk(chunk)
 		if error then
-			errors.error_list[linenum] = error
-
-			if config.auto_jump_to_first_error and #vim.tbl_keys(errors.error_list) == 1 then
-				local dir = find_directory_for_line(linenum)
-				utils.jump_to_error(error, dir, {})
-				error_cursor = linenum
-			end
-		else
-			local dirchange = vim.fn.matchlist(line, "\\%(Entering\\|Leavin\\(g\\)\\) directory [`']\\(.\\+\\)'$")
-			if #dirchange > 0 then
-				local leaving = dirchange[2] ~= ""
-				local dir = dirchange[3]
-
-				local latest_dir = find_directory_for_line(linenum)
-
-				if utils.is_absolute(dir) then
-					dir_changes[linenum] = vim.fn.fnamemodify(dir, leaving and ":h" or "")
-				else
-					if leaving then
-						dir_changes[linenum] = vim.fn.fnamemodify(latest_dir, ":h")
-					else
-						dir_changes[linenum] = vim.fn.resolve(latest_dir .. "/" .. dir)
-					end
-				end
-			end
-
-			if not (linenum == 1 and vim.startswith(line, "vim:")) then
-				local highlights = utils.match_command_ouput(line, linenum)
-				table.move(highlights, 1, #highlights, #output_highlights + 1, output_highlights)
+			for k,v in pairs(error) do
+				print(k,v)
 			end
 		end
+
 	end
+
+	-- for linenum, line in ipairs(lines) do
+	-- 	local error = errors.parse(line, linenum)
+	--
+	-- 	if error then
+	-- 		errors.error_list[linenum] = error
+	--
+	-- 		if config.auto_jump_to_first_error and #vim.tbl_keys(errors.error_list) == 1 then
+	-- 			local dir = find_directory_for_line(linenum)
+	-- 			utils.jump_to_error(error, dir, {})
+	-- 			error_cursor = linenum
+	-- 		end
+	-- 	else
+	-- 		local dirchange = vim.fn.matchlist(line, "\\%(Entering\\|Leavin\\(g\\)\\) directory [`']\\(.\\+\\)'$")
+	-- 		if #dirchange > 0 then
+	-- 			local leaving = dirchange[2] ~= ""
+	-- 			local dir = dirchange[3]
+	--
+	-- 			local latest_dir = find_directory_for_line(linenum)
+	--
+	-- 			if utils.is_absolute(dir) then
+	-- 				dir_changes[linenum] = vim.fn.fnamemodify(dir, leaving and ":h" or "")
+	-- 			else
+	-- 				if leaving then
+	-- 					dir_changes[linenum] = vim.fn.fnamemodify(latest_dir, ":h")
+	-- 				else
+	-- 					dir_changes[linenum] = vim.fn.resolve(latest_dir .. "/" .. dir)
+	-- 				end
+	-- 			end
+	-- 		end
+	--
+	-- 		if not (linenum == 1 and vim.startswith(line, "vim:")) then
+	-- 			local highlights = utils.match_command_ouput(line, linenum)
+	-- 			table.move(highlights, 1, #highlights, #output_highlights + 1, output_highlights)
+	-- 		end
+	-- 	end
+	-- end
 
 	errors.highlight(bufnr)
 	utils.highlight_command_outputs(bufnr, output_highlights)
