@@ -246,6 +246,8 @@ local runcommand = a.void(
 
 		utils.buf_set_opt(bufnr, "buftype", "nofile")
 		utils.buf_set_opt(bufnr, "filetype", "compilation")
+		utils.buf_set_opt(bufnr, "buflisted", true)
+		utils.buf_set_opt(bufnr, "swapfilw", false)
 
 		-- reset compilation buffer
 		set_lines(bufnr, 0, -1, {})
